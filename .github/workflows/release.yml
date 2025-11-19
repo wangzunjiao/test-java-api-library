@@ -1,30 +1,27 @@
-name: Auto Version Bump on PR Merge
+name: Auto Version Bump on PR Creation
 
 on:
-  pull_request:
-    types: [closed]
+  pull_request_target:
+    types: [opened, synchronize]  # Trigger when PR is created or updated
     branches:
       - master
       - main
 
 jobs:
   version-bump:
-    # Only run when PR is merged (not just closed)
-    if: github.event.pull_request.merged == true
+    # This job will run when a PR is opened or synchronized (updated)
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: write  # Ensure write permissions for commit and push
       pull-requests: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Fetch all history to ensure we can push changes
           fetch-depth: 0
-          # Use a PAT or GitHub App token for pushing to protected branches
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}  # GitHub token for write access
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -94,6 +91,9 @@ jobs:
 
       - name: Commit and push version bump
         run: |
+          # Ensure we are on the correct branch
+          git checkout master
+          
           # Create a new branch for the version bump
           BRANCH_NAME="version-bump-${{ steps.version.outputs.new_version }}"
           git checkout -b $BRANCH_NAME
@@ -103,12 +103,12 @@ jobs:
           
           # Commit changes
           git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}
-
+          
           Changes:
           - Update pom.xml version
           - Update README.md Maven dependency version
           
-          Triggered by PR merge: #${{ github.event.pull_request.number }}
+          Triggered by PR creation: #${{ github.event.pull_request.number }}
           PR Title: ${{ github.event.pull_request.title }}"
 
           # Push the branch
