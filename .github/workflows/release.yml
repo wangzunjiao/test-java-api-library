@@ -9,8 +9,6 @@ on:
 
 jobs:
   version-bump:
-    # Only run when PR is merged (not just closed)
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}  # GitHub token for write access
+          token: ${{ secrets.ANTOM_AUTOMATION_BOT_TOKEN }}  # GitHub token for write access
 
       - name: Set up Python
         uses: actions/setup-python@v5
