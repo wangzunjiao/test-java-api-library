@@ -91,7 +91,7 @@ jobs:
 
       - name: Commit and push version bump
         run: |
-          # Ensure we are on the correct branch
+          # Ensure we are on the correct branch (master or main)
           git checkout master
 
           # Add all changes to the staging area (including modified files)
@@ -107,27 +107,17 @@ jobs:
           Triggered by PR creation: #${{ github.event.pull_request.number }}
           PR Title: ${{ github.event.pull_request.title }}"
 
-          # Now pull the latest changes from the remote master
+          # Now pull the latest changes from the remote master to sync
           git pull origin master --rebase
 
-          # Create a new branch for the version bump
-          BRANCH_NAME="version-bump-${{ steps.version.outputs.new_version }}"
-          git checkout -b $BRANCH_NAME
-
-          # Add changed files
-          git add pom.xml README.md
-
-          # Commit changes
-          git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}"
-
-          # Push the branch
-          git push origin $BRANCH_NAME
+          # Push the changes directly to the current branch
+          git push origin master
 
           # Create a pull request (optional - requires gh CLI)
-          echo "::notice::Version bump branch '$BRANCH_NAME' has been created and pushed."
-          echo "::notice::Please review and merge the version bump PR."
+          echo "::notice::Version bump has been pushed to the 'master' branch."
         env:
-          ANTOM_AUTOMATION_BOT_TOKEN: ${{ secrets.ANTOM_AUTOMATION_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ANTOM_AUTOMATION_BOT_TOKEN }}
+      
       
       
       - name: Summary
