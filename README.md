@@ -2,6 +2,14 @@
 
 # Adyen Java API Library
 
+```xml
+<dependency>
+    <groupId>com.alipay.global.sdk</groupId>
+    <artifactId>global-open-sdk-java</artifactId>
+    <version>2.0.73</version>
+</dependency>
+```
+
 [![Maven Central](https://img.shields.io/maven-central/v/com.adyen/adyen-java-api-library)](https://central.sonatype.com/artifact/com.adyen/adyen-java-api-library/)
 
 This is the officially supported Java library for using Adyen's APIs.
