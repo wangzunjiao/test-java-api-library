@@ -12,7 +12,7 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.adyen/adyen-java-api-library)](https://central.sonatype.com/artifact/com.adyen/adyen-java-api-library/)
 
-This is the officially supported Java library for using Adyen's APIs.
+This is the officially supported Java library for using Ad1111yen's APIs.
 
 ## Supported API versions
 
