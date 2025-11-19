@@ -1,111 +1,136 @@
-name: Update Version
+name: Auto Version Bump on PR Merge
 
 on:
   pull_request:
+    types: [closed]
     branches:
       - master
-    types:
-      - opened
-      - synchronize
-      - reopened
+      - main
 
 jobs:
-  update-version:
+  version-bump:
+    # Only run when PR is merged (not just closed)
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history to ensure we can push changes
+          fetch-depth: 0
+          # Use a PAT or GitHub App token for pushing to protected branches
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get current version
-        id: get_version
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract and increment version
+        id: version
         run: |
-          # 从 pom.xml 和 README.md 中提取当前版本号
-          POM_VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" pom.xml)
-          README_VERSION=$(grep -oPm1 "(?<=version=)[^ ]+" README.md)
-
-          # 获取当前的小版本号
-          CURRENT_VERSION="${POM_VERSION:-$README_VERSION}"
+          #!/bin/bash
+          
+          # Extract current version from pom.xml
+          CURRENT_VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/' | xargs)
           echo "Current version: $CURRENT_VERSION"
-
-          # 获取大版本号和小版本号
-          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-          MAJOR_VERSION="${VERSION_PARTS[0]}"
-          MINOR_VERSION="${VERSION_PARTS[1]}"
-          PATCH_VERSION="${VERSION_PARTS[2]}"
-
-          # 增加补丁版本号
-          if [ "$PATCH_VERSION" -lt 99 ]; then
-            PATCH_VERSION=$((PATCH_VERSION + 1))
-          else
-            PATCH_VERSION=0
-            MINOR_VERSION=$((MINOR_VERSION + 1))
+          
+          # Parse version components
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          
+          # Handle version carry (e.g., 2.0.99 -> 2.1.0)
+          if [ $NEW_PATCH -gt 99 ]; then
+            NEW_PATCH=0
+            MINOR=$((MINOR + 1))
           fi
-
-          # 生成新的版本号
-          NEW_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}"
+          
+          # Construct new version
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
           echo "New version: $NEW_VERSION"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+          
+          # Set output for subsequent steps
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update version in pom.xml
+      - name: Update pom.xml version
         run: |
-          sed -i "s|<version>.*</version>|<version>${{ env.new_version }}</version>|" pom.xml
+          # Update version in pom.xml
+          sed -i "s/<version>${{ steps.version.outputs.current_version }}<\/version>/<version>${{ steps.version.outputs.new_version }}<\/version>/" pom.xml
+          
+          # Also update artifact version if it exists
+          sed -i "s/<artifactId>global-open-sdk-java<\/artifactId>\s*<version>${{ steps.version.outputs.current_version }}<\/version>/<artifactId>global-open-sdk-java<\/artifactId>\n    <version>${{ steps.version.outputs.new_version }}<\/version>/" pom.xml
+          
+          echo "Updated pom.xml to version ${{ steps.version.outputs.new_version }}"
 
-      - name: Update version in README.md
+      - name: Update README.md version
         run: |
-          sed -i "s|version=.*|version=${{ env.new_version }}|" README.md
+          # Update version in README.md Maven dependency snippet
+          sed -i "s/<version>${{ steps.version.outputs.current_version }}<\/version>/<version>${{ steps.version.outputs.new_version }}<\/version>/" README.md
+          
+          # Update version in pom.xml code block within README
+          sed -i "s/<version>${{ steps.version.outputs.current_version }}<\/version>/<version>${{ steps.version.outputs.new_version }}<\/version>/g" README.md
+          
+          echo "Updated README.md to version ${{ steps.version.outputs.new_version }}"
 
-      - name: Commit updated files
+      - name: Verify changes
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
+          echo "=== Changes to be committed ==="
+          git diff --no-color pom.xml README.md
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Commit and push version bump
+        run: |
+          # Create a new branch for the version bump
+          BRANCH_NAME="version-bump-${{ steps.version.outputs.new_version }}"
+          git checkout -b $BRANCH_NAME
+          
+          # Add changed files
           git add pom.xml README.md
-          git commit -m "Update version to ${{ env.new_version }}"
-          git push
-      - name: Get current version
-        id: get_version
-        run: |
-          # 查看 pom.xml 和 README.md 文件是否存在
-          if [[ ! -f pom.xml ]]; then
-            echo "pom.xml not found!" && exit 1
-          fi
-        
-          if [[ ! -f README.md ]]; then
-            echo "README.md not found!" && exit 1
-          fi
-        
-          # 从 pom.xml 和 README.md 中提取当前版本号
-          POM_VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" pom.xml)
-          README_VERSION=$(grep -oPm1 "(?<=version=)[^ ]+" README.md)
-        
-          echo "POM version: $POM_VERSION"
-          echo "README version: $README_VERSION"
-        
-          # 如果没有在 README 或 pom.xml 中找到版本号，退出
-          if [ -z "$POM_VERSION" ] && [ -z "$README_VERSION" ]; then
-            echo "No version found in pom.xml or README.md" && exit 1
-          fi
-        
-          # 获取当前的版本号，默认使用 pom.xml 版本号
-          CURRENT_VERSION="${POM_VERSION:-$README_VERSION}"
-          echo "Current version: $CURRENT_VERSION"
-        
-          # 获取大版本号和小版本号
-          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-          MAJOR_VERSION="${VERSION_PARTS[0]}"
-          MINOR_VERSION="${VERSION_PARTS[1]}"
-          PATCH_VERSION="${VERSION_PARTS[2]}"
-        
-          # 增加补丁版本号
-          if [ "$PATCH_VERSION" -lt 99 ]; then
-            PATCH_VERSION=$((PATCH_VERSION + 1))
-          else
-            PATCH_VERSION=0
-            MINOR_VERSION=$((MINOR_VERSION + 1))
-          fi
-        
-          # 生成新的版本号
-          NEW_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}"
-          echo "New version: $NEW_VERSION"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+          
+          # Commit changes
+          git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}
 
+          Changes:
+          - Update pom.xml version
+          - Update README.md Maven dependency version
+          
+          Triggered by PR merge: #${{ github.event.pull_request.number }}
+          PR Title: ${{ github.event.pull_request.title }}"
+
+          # Push the branch
+          git push origin $BRANCH_NAME
+          
+          # Create a pull request (optional - requires gh CLI)
+          echo "::notice::Version bump branch '$BRANCH_NAME' has been created and pushed."
+          echo "::notice::Please review and merge the version bump PR."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Version Bump Summary" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Current Version:** ${{ steps.version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **New Version:** ${{ steps.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Files Updated:**" >> $GITHUB_STEP_SUMMARY
+          echo "- pom.xml" >> $GITHUB_STEP_SUMMARY
+          echo "- README.md" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the changes in branch 'version-bump-${{ steps.version.outputs.new_version }}'" >> $GITHUB_STEP_SUMMARY
+          echo "2. Create a pull request from this branch to master" >> $GITHUB_STEP_SUMMARY
+          echo "3. Merge the PR to complete the version bump" >> $GITHUB_STEP_SUMMARY
