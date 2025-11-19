@@ -6,7 +6,7 @@
 <dependency>
     <groupId>com.alipay.global.sdk</groupId>
     <artifactId>global-open-sdk-java</artifactId>
-    <version>2.0.75</version>
+    <version>2.0.76</version>
 </dependency>
 ```
 
@@ -16,7 +16,7 @@ This is the officially supported Java library for using Adyen's APIs.
 
 ## Supported API versions
 
-The Library supports all APIs under the following services:
+The Library supports all APIs under the following services:1111
 
 | API                                                                                                                          | Description                                                                                                                                                                                                                                                                                                                                | Service Name                             | Supported version |
 |------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|-------------------|
