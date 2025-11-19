@@ -15,7 +15,7 @@
 This is the officially supported Java library for using Adyen's APIs.
 
 ## Supported API versions
-
+1111
 The Library supports all APIs under the following services:
 
 | API                                                                                                                          | Description                                                                                                                                                                                                                                                                                                                                | Service Name                             | Supported version |
