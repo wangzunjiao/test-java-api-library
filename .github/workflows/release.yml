@@ -1,40 +1,64 @@
-name: Release
+name: Update Version
 
 on:
-  workflow_dispatch:
-    inputs:
-      pre-release:
-        required: false
-        type: boolean
-        default: false
-        description: "This release will be labeled as non-production ready"
-      github-release:
-        required: false
-        type: boolean
-        default: false
-        description: "Publish Github release for the current version"
-  # Monitor pull request events
   pull_request:
-    types:
-      - closed
     branches:
-      - main
+      - master
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  release:
-    permissions:
-      contents: write
-      pull-requests: write
+  update-version:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Prepare the next main release
-        uses: Adyen/release-automation-action@v1.3.1
-        with:
-          token: ${{ secrets.ADYEN_AUTOMATION_BOT_ACCESS_TOKEN }}
-          develop-branch: main
-          version-files: pom.xml src/main/java/com/adyen/Client.java README.md
-          release-title: Adyen Java API Library
-          pre-release: ${{ inputs.pre-release || false }}
-          github-release: ${{ inputs.github-release || false }}
-          separator: .pre.beta
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get current version
+        id: get_version
+        run: |
+          # 从 pom.xml 和 README.md 中提取当前版本号
+          POM_VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" pom.xml)
+          README_VERSION=$(grep -oPm1 "(?<=version=)[^ ]+" README.md)
+
+          # 获取当前的小版本号
+          CURRENT_VERSION="${POM_VERSION:-$README_VERSION}"
+          echo "Current version: $CURRENT_VERSION"
+
+          # 获取大版本号和小版本号
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR_VERSION="${VERSION_PARTS[0]}"
+          MINOR_VERSION="${VERSION_PARTS[1]}"
+          PATCH_VERSION="${VERSION_PARTS[2]}"
+
+          # 增加补丁版本号
+          if [ "$PATCH_VERSION" -lt 99 ]; then
+            PATCH_VERSION=$((PATCH_VERSION + 1))
+          else
+            PATCH_VERSION=0
+            MINOR_VERSION=$((MINOR_VERSION + 1))
+          fi
+
+          # 生成新的版本号
+          NEW_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Update version in pom.xml
+        run: |
+          sed -i "s|<version>.*</version>|<version>${{ env.new_version }}</version>|" pom.xml
+
+      - name: Update version in README.md
+        run: |
+          sed -i "s|version=.*|version=${{ env.new_version }}|" README.md
+
+      - name: Commit updated files
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add pom.xml README.md
+          git commit -m "Update version to ${{ env.new_version }}"
+          git push
