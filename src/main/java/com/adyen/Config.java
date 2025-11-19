@@ -9,6 +9,7 @@ public class Config {
     protected String username;
     protected String password;
     protected Environment environment;
+    protected Environment environment111;
 
     /**
      * Application name: used as HTTP client User-Agent
