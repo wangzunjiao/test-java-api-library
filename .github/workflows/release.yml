@@ -62,3 +62,50 @@ jobs:
           git add pom.xml README.md
           git commit -m "Update version to ${{ env.new_version }}"
           git push
+      - name: Get current version
+        id: get_version
+        run: |
+          # 查看 pom.xml 和 README.md 文件是否存在
+          if [[ ! -f pom.xml ]]; then
+            echo "pom.xml not found!" && exit 1
+          fi
+        
+          if [[ ! -f README.md ]]; then
+            echo "README.md not found!" && exit 1
+          fi
+        
+          # 从 pom.xml 和 README.md 中提取当前版本号
+          POM_VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" pom.xml)
+          README_VERSION=$(grep -oPm1 "(?<=version=)[^ ]+" README.md)
+        
+          echo "POM version: $POM_VERSION"
+          echo "README version: $README_VERSION"
+        
+          # 如果没有在 README 或 pom.xml 中找到版本号，退出
+          if [ -z "$POM_VERSION" ] && [ -z "$README_VERSION" ]; then
+            echo "No version found in pom.xml or README.md" && exit 1
+          fi
+        
+          # 获取当前的版本号，默认使用 pom.xml 版本号
+          CURRENT_VERSION="${POM_VERSION:-$README_VERSION}"
+          echo "Current version: $CURRENT_VERSION"
+        
+          # 获取大版本号和小版本号
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR_VERSION="${VERSION_PARTS[0]}"
+          MINOR_VERSION="${VERSION_PARTS[1]}"
+          PATCH_VERSION="${VERSION_PARTS[2]}"
+        
+          # 增加补丁版本号
+          if [ "$PATCH_VERSION" -lt 99 ]; then
+            PATCH_VERSION=$((PATCH_VERSION + 1))
+          else
+            PATCH_VERSION=0
+            MINOR_VERSION=$((MINOR_VERSION + 1))
+          fi
+        
+          # 生成新的版本号
+          NEW_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_ENV
+
