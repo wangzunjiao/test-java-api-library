@@ -94,7 +94,20 @@ jobs:
           # Ensure we are on the correct branch
           git checkout master
 
-          # Pull latest changes from remote to avoid conflicts
+          # Add all changes to the staging area (including modified files)
+          git add .
+
+          # Commit the changes
+          git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}
+
+          Changes:
+          - Update pom.xml version
+          - Update README.md Maven dependency version
+
+          Triggered by PR creation: #${{ github.event.pull_request.number }}
+          PR Title: ${{ github.event.pull_request.title }}"
+
+          # Now pull the latest changes from the remote master
           git pull origin master --rebase
 
           # Create a new branch for the version bump
@@ -105,14 +118,7 @@ jobs:
           git add pom.xml README.md
 
           # Commit changes
-          git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}
-
-          Changes:
-          - Update pom.xml version
-          - Update README.md Maven dependency version
-
-          Triggered by PR creation: #${{ github.event.pull_request.number }}
-          PR Title: ${{ github.event.pull_request.title }}"
+          git commit -m "chore: bump version from ${{ steps.version.outputs.current_version }} to ${{ steps.version.outputs.new_version }}"
 
           # Push the branch
           git push origin $BRANCH_NAME
@@ -122,7 +128,8 @@ jobs:
           echo "::notice::Please review and merge the version bump PR."
         env:
           ANTOM_AUTOMATION_BOT_TOKEN: ${{ secrets.ANTOM_AUTOMATION_BOT_TOKEN }}
-
+      
+      
       - name: Summary
         run: |
           echo "## Version Bump Summary" >> $GITHUB_STEP_SUMMARY
