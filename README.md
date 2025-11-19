@@ -6,7 +6,7 @@
 <dependency>
     <groupId>com.alipay.global.sdk</groupId>
     <artifactId>global-open-sdk-java</artifactId>
-    <version>2.0.73</version>
+    <version>2.0.74</version>
 </dependency>
 ```
 
